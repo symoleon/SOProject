@@ -14,8 +14,6 @@
 int *pids;
 int pids_shmid;
 
-struct sigaction sa;
-
 void init() {
     printf("Initializing\n");
     mkfifo("/tmp/so_fifo", 0666);
@@ -38,7 +36,7 @@ void init() {
 
 void sigint_handler(int signum, siginfo_t *info, void *context) {
     if (info->si_pid != pids[1]) return;
-    printf("Exiting\n");
+    printf("Sending signal to childs\n");
     int semid = get_semaphore();
     sem_wait(semid);
     int shmid = get_shared_memory();
@@ -62,10 +60,17 @@ void sigusr1_handler(int signum, siginfo_t *info, void *context) {
 
 int main() {
     ignore_all_signals();
+
+    struct sigaction sa;
     
     sa.sa_flags = SA_SIGINFO;
     sa.sa_sigaction = *sigint_handler;
     sigaction(SIGINT, &sa, NULL);
+
+    struct sigaction sa2;
+    sa2.sa_flags = SA_SIGINFO;
+    sa2.sa_sigaction = *sigusr1_handler;
+    sigaction(SIGUSR1, &sa2, NULL);
 
     init();
 
