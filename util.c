@@ -9,10 +9,10 @@
 #include "util.h"
 #include "process.h"
 
-int create_process(void (*process)(int* pids), int* pids) {
+int create_process(void (*process)(int pids_shmid), int pids_shmid) {
     int pid = fork();
     if (pid == 0) {
-        process(pids);
+        process(pids_shmid);
         exit(0);
     }
     return pid;

@@ -13,13 +13,13 @@
 #include "process.h"
 #include "util.h"
 
-int* siblings_pids;
+int sibling_pids_shmid;
 
 int reading_process_can_exit = 0;
 
 void reading_process_sigusr1_handler(int signum, siginfo_t *info, void *context) {
     if (info->si_pid != getppid()) return;
-    printf("Received SIGINT from the parent\n");
+    printf("Received SIGUSR1 from the parent\n");
     int semid = get_semaphore();
     int shmid = get_shared_memory(); 
     int *shm = (int *)shmat(shmid, NULL, 0);
@@ -32,13 +32,13 @@ void reading_process_sigusr1_handler(int signum, siginfo_t *info, void *context)
     }
 }
 
-void run_reading_process(int *pids) {
+void run_reading_process(int pids_shmid) {
     ignore_all_signals();
     struct sigaction sa;
     sa.sa_flags = SA_SIGINFO;
     sa.sa_sigaction = reading_process_sigusr1_handler;
     sigaction(SIGUSR1, &sa, NULL);
-    siblings_pids = pids;
+    sibling_pids_shmid = pids_shmid;
     int msgid = get_message_queue();
     struct msgbuf message;
     message.mtype = 1;
@@ -71,7 +71,9 @@ void run_reading_process(int *pids) {
         }
     }
     free(buffer);
-    kill(pids[1], SIGUSR1);
+    int *sibling_pids = (int *)shmat(sibling_pids_shmid, NULL, 0);
+    kill(sibling_pids[1], SIGUSR1);
+    shmdt(sibling_pids);
     exit(0);
 }
 
@@ -83,7 +85,12 @@ void user_sigint_handler(int signum) {
 }
 
 void counting_process_sigusr1_handler(int signum, siginfo_t *info, void *context) {
-    if (info->si_pid != siblings_pids[0]) return;
+    int *sibling_pids = (int *) shmat(sibling_pids_shmid, NULL, 0);
+    if (info->si_pid != sibling_pids[0]) {
+        shmdt(sibling_pids);
+        return;
+    }
+    shmdt(sibling_pids);
     printf("Received SIGUSR1 from the first process\n");
     int semid = get_semaphore();
     int shmid = get_shared_memory();
@@ -97,14 +104,14 @@ void counting_process_sigusr1_handler(int signum, siginfo_t *info, void *context
     }
 }
 
-void run_counting_process(int *pids) {
+void run_counting_process(int pids_shmid) {
     ignore_all_signals();
     signal(SIGINT, user_sigint_handler);
     struct sigaction sa;
     sa.sa_flags = SA_SIGINFO;
     sa.sa_sigaction = counting_process_sigusr1_handler;
     sigaction(SIGUSR1, &sa, NULL);
-    siblings_pids = pids;
+    sibling_pids_shmid = pids_shmid;
     int msgid = get_message_queue();
     struct msgbuf message;
     int fd = open("/tmp/so_fifo", O_WRONLY);
@@ -122,14 +129,21 @@ void run_counting_process(int *pids) {
     }
     msgctl(msgid, IPC_RMID, NULL);
     close(fd);
-    kill(pids[2], SIGUSR1);
+    int *sibling_pids = (int *)shmat(sibling_pids_shmid, NULL, 0);
+    kill(sibling_pids[2], SIGUSR1);
+    shmdt(sibling_pids);
     exit(0);
 }
 
 int writing_process_can_exit = 0;
 
 void writing_process_sigusr1_handler(int signum, siginfo_t *info, void *context) {
-    if (info->si_pid != siblings_pids[1]) return;
+    int *sibling_pids = (int *)shmat(sibling_pids_shmid, NULL, 0);
+    if (info->si_pid != sibling_pids[1]) {
+        shmdt(sibling_pids);
+        return;
+    }
+    shmdt(sibling_pids);
     printf("Received SIGUSR1 from the second process\n");
     int semid = get_semaphore();
     int shmid = get_shared_memory();
@@ -143,13 +157,13 @@ void writing_process_sigusr1_handler(int signum, siginfo_t *info, void *context)
     }
 }
 
-void run_writing_process(int *pids) {
+void run_writing_process(int pids_shmid) {
     ignore_all_signals();
     struct sigaction sa;
     sa.sa_flags = SA_SIGINFO;
     sa.sa_sigaction = writing_process_sigusr1_handler;
     sigaction(SIGUSR1, &sa, NULL);
-    siblings_pids = pids;
+    sibling_pids_shmid = pids_shmid;
     int fd = open("/tmp/so_fifo", O_RDONLY);
     int count;
 

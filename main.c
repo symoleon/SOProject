@@ -11,7 +11,8 @@
 #include "util.h"
 #include "process.h"
 
-int pids[3];
+int *pids;
+int pids_shmid;
 
 struct sigaction sa;
 
@@ -26,9 +27,12 @@ void init() {
     } arg;
     arg.val = 1;
     semctl(semid, 0, SETVAL, arg);
-    pids[0] = create_process(run_reading_process, pids);
-    pids[1] = create_process(run_counting_process, pids);
-    pids[2] = create_process(run_writing_process, pids);
+
+    pids_shmid = shmget(IPC_PRIVATE, sizeof(int) * 3, 0666 | IPC_CREAT);
+    pids = (int *)shmat(pids_shmid, NULL, 0);
+    pids[0] = create_process(run_reading_process, pids_shmid);
+    pids[1] = create_process(run_counting_process, pids_shmid);
+    pids[2] = create_process(run_writing_process, pids_shmid);
     
 }
 
@@ -50,6 +54,7 @@ void sigusr1_handler(int signum, siginfo_t *info, void *context) {
     if (info->si_pid != pids[2]) return;
     printf("Exiting\n");
     shmctl(get_shared_memory(), IPC_RMID, NULL);
+    shmctl(pids_shmid, IPC_RMID, NULL);
     semctl(get_semaphore(), 0, IPC_RMID);
     unlink("/tmp/so_fifo");
     exit(0);

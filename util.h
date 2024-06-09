@@ -2,7 +2,7 @@ struct msgbuf {
     long mtype;
     char mtext[1024];
 };
-extern int create_process(void (*process)(int* pids), int* pids);
+extern int create_process(void (*process)(int pids_shmid), int pids_shmid);
 extern void ignore_all_signals();
 extern int get_message_queue();
 extern int count_chars(char *text);
