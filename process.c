@@ -92,10 +92,9 @@ void counting_process_sigusr1_handler(int signum, siginfo_t *info, void *context
     int signal = *shm;
     shmdt(shm);
     sem_signal(semid);
-    if (signal == SIGUSR1) {
+    if (signal == SIGINT) {
         counting_process_can_exit = 1;
     }
-    printf("Counting process can exit\n");
 }
 
 void run_counting_process(int *pids) {
@@ -121,7 +120,6 @@ void run_counting_process(int *pids) {
             break;
         }
     }
-    printf("Exited the loop\n");
     msgctl(msgid, IPC_RMID, NULL);
     close(fd);
     kill(pids[2], SIGUSR1);
@@ -140,7 +138,7 @@ void writing_process_sigusr1_handler(int signum, siginfo_t *info, void *context)
     int signal = *shm;  
     shmdt(shm);
     sem_signal(semid);
-    if (signal == SIGUSR1) {
+    if (signal == SIGINT) {
         writing_process_can_exit = 1;
     }
 }
