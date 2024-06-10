@@ -26,6 +26,11 @@ void init() {
     arg.val = 1;
     semctl(semid, 0, SETVAL, arg);
 
+    int shmid = get_shared_memory();
+    int *shm = (int *)shmat(shmid, NULL, 0);
+    *shm = 0;
+    shmdt(shm);
+
     pids_shmid = shmget(IPC_PRIVATE, sizeof(int) * 3, 0666 | IPC_CREAT);
     pids = (int *)shmat(pids_shmid, NULL, 0);
     pids[0] = create_process(run_reading_process, pids_shmid);
@@ -34,7 +39,7 @@ void init() {
     
 }
 
-void sigint_handler(int signum, siginfo_t *info, void *context) {
+void counting_process_signal_handler(int signum, siginfo_t *info, void *context) {
     if (info->si_pid != pids[1]) return;
     printf("Sending signal to childs\n");
     int semid = get_semaphore();
@@ -64,8 +69,10 @@ int main() {
     struct sigaction sa;
     
     sa.sa_flags = SA_SIGINFO;
-    sa.sa_sigaction = *sigint_handler;
+    sa.sa_sigaction = *counting_process_signal_handler;
     sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTSTP, &sa, NULL);
+    sigaction(SIGCONT, &sa, NULL);
 
     struct sigaction sa2;
     sa2.sa_flags = SA_SIGINFO;

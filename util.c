@@ -40,7 +40,7 @@ int count_chars(char *text) {
 
 int get_shared_memory() {
     key_t key = ftok(".", 2);
-    int shmid = shmget(key, 1024, 0666 | IPC_CREAT);
+    int shmid = shmget(key, sizeof(int) * 3, 0666 | IPC_CREAT);
     return shmid;
 }
 
@@ -64,4 +64,8 @@ void sem_signal(int semid) {
     sops.sem_op = 1;
     sops.sem_flg = 0;
     semop(semid, &sops, 1);
+}
+
+void wait_if_paused(int *is_paused) {
+    while (*is_paused);
 }

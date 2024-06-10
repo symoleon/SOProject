@@ -10,3 +10,4 @@ extern int get_shared_memory();
 extern int get_semaphore();
 extern void sem_wait(int semid);
 extern void sem_signal(int semid);
+extern void wait_if_paused(int* is_paused);
